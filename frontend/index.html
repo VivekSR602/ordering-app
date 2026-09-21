@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>Online Ordering</title>
+
+<style>
+
+body {
+    font-family: Arial;
+    margin: 40px;
+}
+
+.product {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin: 10px;
+    width: 250px;
+}
+
+button {
+    padding: 8px 15px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Online Food Ordering</h1>
+
+<button onclick="loadProducts()">
+    View Products
+</button>
+
+<div id="products"></div>
+
+<script>
+
+async function loadProducts() {
+
+    const response = await fetch("/api/products");
+
+    const products = await response.json();
+
+    let html = "";
+
+    products.forEach(product => {
+
+        html += `
+            <div class="product">
+
+                <h3>${product.name}</h3>
+
+                <p>Price: ₹${product.price}</p>
+
+                <button onclick="placeOrder(${product.id})">
+                    Order
+                </button>
+
+            </div>
+        `;
+
+    });
+
+    document.getElementById("products").innerHTML = html;
+
+}
+
+async function placeOrder(productId) {
+
+    const response = await fetch("/api/orders", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+            productId: productId
+        })
+
+    });
+
+    const result = await response.json();
+
+    alert(
+        result.message +
+        "\nOrder ID: " +
+        result.orderId
+    );
+
+}
+
+</script>
+
+</body>
+
+</html>
