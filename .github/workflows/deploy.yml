@@ -1,0 +1,79 @@
+name: Ordering Application CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_BACKEND: ordering-backend
+  ECR_FRONTEND: ordering-frontend
+  ECS_CLUSTER: ordering-cluster
+  ECS_BACKEND_SERVICE: ordering-backend
+  ECS_FRONTEND_SERVICE: ordering-frontend
+
+jobs:
+
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Get AWS Account
+        id: account
+        run: |
+          echo "account=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+
+      - name: Build Backend
+        run: |
+          docker build \
+            -t ${{ steps.account.outputs.account }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:${{ github.sha }} \
+            ./backend
+
+      - name: Push Backend
+        run: |
+          docker push \
+            ${{ steps.account.outputs.account }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:${{ github.sha }}
+
+      - name: Build Frontend
+        run: |
+          docker build \
+            -t ${{ steps.account.outputs.account }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:${{ github.sha }} \
+            ./frontend
+
+      - name: Push Frontend
+        run: |
+          docker push \
+            ${{ steps.account.outputs.account }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:${{ github.sha }}
+
+      - name: Deploy Backend
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_BACKEND_SERVICE \
+            --force-new-deployment
+
+      - name: Deploy Frontend
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_FRONTEND_SERVICE \
+            --force-new-deployment
